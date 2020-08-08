@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <link rel="stylesheet" type="text/css" href="style.css"></link>
+    <script defer src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+  </head>
+  <body>
+    <div id="app">
+      <div class="media-overview" v-show="mediaOverview || loading" @click="mediaOverview = null">
+        <div class="spinner" v-show="loading">
+          <div></div>
+          <div></div>
+          <div></div>
+        </div>
+        <img :src="mediaOverview" v-if="RegExp('.*(jpe?g|png|gif)', 'gi').test(mediaOverview)"
+          style="display: none;" v-show="mediaOverview" />
+        <video style="display: none;" v-show="mediaOverview" autoplay loop controls v-else>
+          <source :src="mediaOverview" :type="getExtension(mediaOverview)"></soure>
+        </video>
+      </div>
+      <div class="media-container">
+        <img v-for="path in paths" :src="path" v-if="RegExp('.*(jpe?g|png|gif)', 'gi').test(path)"
+           @click="mediaOverview = path" />
+        <video @click="mediaOverview = path" autoplay muted loop v-else>
+          <source :src="path" :type="getExtension(path)"></soure>
+        </video>
+      </div>
+    </div>
+    <script defer src="index.js"></script>
+  </body>
+</html>
