@@ -10,6 +10,7 @@ use regex::Regex;
 use walkdir::{DirEntry, WalkDir};
 
 use actix_files as fs;
+use actix_files::NamedFile;
 use actix_web::{web, HttpServer, Responder, http};
 use actix_cors::Cors;
 
@@ -59,6 +60,10 @@ async fn get_paths() -> impl Responder {
       .map(|e| PathBuf::from(e.path().strip_prefix(&args.path).unwrap()))
       .collect::<Vec<_>>()
   )
+}
+
+async fn index() -> impl Responder {
+  NamedFile::open("static/index.html")
 }
 
 #[actix_rt::main]
@@ -129,8 +134,9 @@ async fn main() -> Result<()> {
           .allowed_header(http::header::CONTENT_TYPE)
           .max_age(3600)
           .finish())
-      .service(fs::Files::new("/static", "static").show_files_listing())
+      .service(fs::Files::new("/static", "static").index_file("index.html"))
       .service(fs::Files::new("/media", &path).show_files_listing())
+      .route("/", web::get().to(index))
       .route("/paths/", web::get().to(get_paths))
   })
   .bind("127.0.0.1:8288")?
