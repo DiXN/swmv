@@ -41,6 +41,10 @@ var app = new Vue({
 
         this.mediaOverview = this.paths[index]
       }
+
+      //close overview ->  escape || backspace
+      if (this.mediaOverview && (e.code === 'Escape' || e.code === 'Backspace'))
+        this.mediaOverview = null
     })
   },
   methods: {
