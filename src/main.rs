@@ -190,6 +190,13 @@ async fn main() -> Result<()> {
         .required(false)
         .takes_value(false),
     )
+    .arg(
+      Arg::with_name("delete")
+        .long("delete")
+        .help("Deletes thumbnails.")
+        .required(false)
+        .takes_value(false),
+    )
     .get_matches();
 
   let path = matches.value_of("path").map(PathBuf::from).unwrap_or(
@@ -245,6 +252,11 @@ async fn main() -> Result<()> {
     } else {
       error!("\"ffmpeg\" and \"ffprobe\" need to be installed for transcode support.");
     }
+  } else if matches.is_present("delete") {
+    let paths = &ARGS.get().unwrap().paths;
+    for path in paths.iter().filter(|p| path_is_thumbnail(p)) {
+      remove_file(path)?;
+    }
   }
 
   HttpServer::new(move || {
@@ -266,6 +278,8 @@ async fn main() -> Result<()> {
   .bind("127.0.0.1:8288")?
   .run()
   .await?;
+
+  // ffmpeg -hwaccel cuvid -c:v h264_cuvid -resize 320x240 -i vid -ss 00:00:00 -t 00:00:20 -c:a copy -c:v h264_nv enc -b:v 3M output.mp4
 
   Ok(())
 }
