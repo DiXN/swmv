@@ -16,6 +16,7 @@ html {
   grid-auto-rows: minmax(15em, 2fr);
   gap: 1em;
   width: calc(100% - 1em);
+  z-index: 999;
 }
 
 img, video {
@@ -24,6 +25,10 @@ img, video {
   height: 100%;
   display: block;
   border-radius: 4px;
+}
+
+video:focus {
+  outline: none;
 }
 
 img:hover, video:hover {
