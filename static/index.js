@@ -67,6 +67,48 @@ var app = new Vue({
       }
 
       return this.videoTypes.mp4
+    },
+    fileExistsOnServer: function(path) {
+      const http = new XMLHttpRequest()
+
+      http.open('HEAD', path, false)
+      http.send()
+
+      return http.status === 200
+    },
+    thumbnailHygiene: function(path) {
+      if (path) {
+        const indexOfExtension = path.lastIndexOf('.') + 1
+        const extension = path.substring(indexOfExtension, path.length)
+
+        if (extension === 'mp4') {
+          const thumbnailPath = `${path.slice(0, -4)}_thumbnail.mp4`
+          const fileExists = this.fileExistsOnServer(thumbnailPath)
+          if (fileExists)
+            return thumbnailPath
+          else
+            path
+        }
+      }
+
+      return path
+    },
+    isAutoplay: function(path) {
+      if (path) {
+        const indexOfExtension = path.lastIndexOf('.') + 1
+        const extension = path.substring(indexOfExtension, path.length)
+
+        if (extension === 'mp4') {
+          const thumbnailPath = `${path.slice(0, -4)}_thumbnail.mp4`
+          const fileExists = this.fileExistsOnServer(thumbnailPath)
+          if (fileExists)
+            return true
+          else
+            return false
+        }
+      }
+
+      return true
     }
   }
 })

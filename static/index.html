@@ -20,10 +20,10 @@
         </video>
       </div>
       <div class="media-container">
-        <img v-for="path in paths" :src="path" v-if="RegExp('.*(jpe?g|png|gif)', 'gi').test(path)"
-           @click="mediaOverview = path" v-show="!mediaOverview" />
-        <video @click="mediaOverview = path" v-show="!mediaOverview" autoplay muted loop v-else>
-          <source :src="path" :type="getExtension(path)"></soure>
+        <img v-for="path in paths" :src="path.replace(/#/g, '%23')" v-if="RegExp('.*(jpe?g|png|gif)', 'gi').test(path)"
+           @click="!mediaOverview ? mediaOverview = path.replace(/#/g, '%23') : null" :title="path" />
+        <video @click="!mediaOverview ? mediaOverview = path : null" :title="path" :autoplay="isAutoplay(path)" muted loop v-else>
+          <source :src="thumbnailHygiene(path)" :type="getExtension(path)"></soure>
         </video>
       </div>
     </div>
