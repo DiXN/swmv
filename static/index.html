@@ -15,7 +15,7 @@
         </div>
         <img :src="mediaOverview" v-if="RegExp('.*(jpe?g|png|gif)', 'gi').test(mediaOverview)"
           style="display: none;" v-show="mediaOverview" />
-        <video :src="mediaOverview" v-show="mediaOverview" autoplay muted loop controls v-else>
+        <video :src="mediaOverview" style="display: none;" v-show="mediaOverview" autoplay muted loop controls v-else>
           <source :src="mediaOverview" :type="getExtension(mediaOverview)"></soure>
         </video>
       </div>
