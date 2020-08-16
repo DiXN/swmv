@@ -20,6 +20,9 @@ var app = new Vue({
 
       //next media ->  arrow-key right || L
       if (this.mediaOverview && (e.code === 'ArrowRight' || e.code === 'KeyL')) {
+        const video = document.querySelector('.media-overview video')
+        video && video.pause()
+
         let index = +currentElement(this.mediaOverview) + 1
 
         if (index === this.paths.length)
@@ -32,6 +35,9 @@ var app = new Vue({
 
       //previous media ->  arrow-key left || H
       if (this.mediaOverview && (e.code === 'ArrowLeft' || e.code === 'KeyH')) {
+        const video = document.querySelector('.media-overview video')
+        video && video.pause()
+
         let index = +currentElement(this.mediaOverview) - 1
 
         if (index < 0)
@@ -43,8 +49,13 @@ var app = new Vue({
       }
 
       //close overview ->  escape || backspace
-      if (this.mediaOverview && (e.code === 'Escape' || e.code === 'Backspace'))
+      if (this.mediaOverview && (e.code === 'Escape' || e.code === 'Backspace')) {
+        const video = document.querySelector('.media-overview video')
+        video && video.pause()
+
         this.mediaOverview = null
+      }
+
     })
   },
   methods: {
