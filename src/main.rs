@@ -71,6 +71,18 @@ async fn get_paths() -> impl Responder {
   web::Json(normailized_paths)
 }
 
+async fn exists_file_on_server(file: web::Path<String>) -> impl Responder {
+  let args = ARGS.get().unwrap();
+
+  for p in args.paths.iter() {
+    if p.ends_with(file.to_owned()) {
+      return web::Json(true);
+    }
+  }
+
+  web::Json(false)
+}
+
 async fn index() -> impl Responder {
   NamedFile::open("static/index.html")
 }
@@ -281,6 +293,7 @@ async fn main() -> Result<()> {
       .service(fs::Files::new("/media", &path).show_files_listing())
       .route("/", web::get().to(index))
       .route("/paths/", web::get().to(get_paths))
+      .route("/file/exists/{file}", web::get().to(exists_file_on_server))
   })
   .bind("127.0.0.1:8288")?
   .run()

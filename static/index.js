@@ -71,10 +71,16 @@ var app = new Vue({
     fileExistsOnServer: function(path) {
       const http = new XMLHttpRequest()
 
-      http.open('HEAD', path, false)
+      const requestPath = `http://127.0.0.1:8288/file/exists/${path}`
+
+      http.open('GET', requestPath, false)
       http.send()
 
-      return http.status === 200
+      if (http.status === 200)
+        if (JSON.parse(http.responseText))
+          return true
+
+      return false
     },
     thumbnailHygiene: function(path) {
       if (path) {
@@ -82,10 +88,12 @@ var app = new Vue({
         const extension = path.substring(indexOfExtension, path.length)
 
         if (extension === 'mp4') {
-          const thumbnailPath = `${path.slice(0, -4)}_thumbnail.mp4`
+          const filePath = `${path.slice(0, -4)}_thumbnail.mp4`
+          const thumbnailPath = filePath.split('/').pop()
+
           const fileExists = this.fileExistsOnServer(thumbnailPath)
           if (fileExists)
-            return thumbnailPath
+            return filePath
           else
             return `${path}#t=2`
         }
@@ -99,7 +107,7 @@ var app = new Vue({
         const extension = path.substring(indexOfExtension, path.length)
 
         if (extension === 'mp4') {
-          const thumbnailPath = `${path.slice(0, -4)}_thumbnail.mp4`
+          const thumbnailPath = `${path.split('/').pop().slice(0, -4)}_thumbnail.mp4`
           const fileExists = this.fileExistsOnServer(thumbnailPath)
           if (fileExists)
             return true
