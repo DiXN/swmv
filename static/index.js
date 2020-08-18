@@ -87,7 +87,7 @@ var app = new Vue({
           if (fileExists)
             return thumbnailPath
           else
-            path
+            return `${path}#t=2`
         }
       }
 
