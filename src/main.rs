@@ -140,8 +140,15 @@ fn transcode() {
           args.extend(["-b:v".to_owned(), "1M".to_owned()].to_vec());
         }
 
+        let thumbnail = format!(
+          "{}_thumbnail.{}",
+          path.file_stem().unwrap().to_string_lossy(),
+          path.extension().unwrap().to_string_lossy()
+        );
+
         Command::new("ffmpeg")
           .args(&args)
+          .arg(path.parent().unwrap().join(&thumbnail))
           .output()
           .expect("Failed to transcode video");
       }
