@@ -18,6 +18,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use walkdir::{DirEntry, WalkDir};
 use which::which;
+use tempfile::tempdir;
 
 use actix_cors::Cors;
 use actix_files as fs;
@@ -32,6 +33,7 @@ struct Args {
   pub path: PathBuf,
   pub depth: Option<usize>,
   pub paths: Vec<PathBuf>,
+  pub thumbnail_dir: PathBuf
 }
 
 #[derive(Debug, Deserialize)]
@@ -74,8 +76,8 @@ async fn get_paths() -> impl Responder {
 async fn exists_file_on_server(file: web::Path<String>) -> impl Responder {
   let args = ARGS.get().unwrap();
 
-  for p in args.paths.iter() {
-    if p.ends_with(file.to_owned()) {
+  for p in WalkDir::new(&args.thumbnail_dir) {
+    if p.unwrap().path().ends_with(file.to_owned()) {
       return web::Json(true);
     }
   }
@@ -108,12 +110,12 @@ fn read_metadata(path: &Path) -> Result<MetaData> {
 
 fn transcode() {
   std::thread::spawn(move || {
-    let args = ARGS.get().unwrap();
+    let g_args = ARGS.get().unwrap();
 
     let threads = num_cpus::get() / 4;
     let threads = if threads > 0 { threads } else { 1 };
 
-    for path in args.paths.iter().filter(|p| !path_is_thumbnail(p)) {
+    for path in g_args.paths.iter().filter(|p| !path_is_thumbnail(p)) {
       if path.extension().unwrap() == "mp4" {
         let meta_data = read_metadata(path).unwrap_or(MetaData {
           width: 320,
@@ -160,7 +162,7 @@ fn transcode() {
 
         Command::new("ffmpeg")
           .args(&args)
-          .arg(path.parent().unwrap().join(&thumbnail))
+          .arg(g_args.thumbnail_dir.join(&thumbnail))
           .output()
           .expect("Failed to transcode video");
       }
@@ -256,11 +258,15 @@ async fn main() -> Result<()> {
     .map(|e| PathBuf::from(e.path()))
     .collect::<Vec<_>>();
 
+  let temp_dir = tempdir().unwrap();
+  let temp_dir = PathBuf::from(temp_dir.path());
+
   let args = Args {
     recursive: recursive,
     path: path.clone(),
     depth: depth,
     paths: paths,
+    thumbnail_dir: temp_dir.clone()
   };
 
   ARGS.set(args).unwrap();
@@ -278,6 +284,7 @@ async fn main() -> Result<()> {
     }
   }
 
+
   HttpServer::new(move || {
     actix_web::App::new()
       .wrap(
@@ -291,6 +298,7 @@ async fn main() -> Result<()> {
       )
       .service(fs::Files::new("/static", "static").index_file("index.html"))
       .service(fs::Files::new("/media", &path).show_files_listing())
+      .service(fs::Files::new("/thumbnails", &temp_dir).show_files_listing())
       .route("/", web::get().to(index))
       .route("/paths/", web::get().to(get_paths))
       .route("/file/exists/{file}", web::get().to(exists_file_on_server))
