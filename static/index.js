@@ -2,20 +2,45 @@ var app = new Vue({
   el: '#app',
   data: {
     loading: true,
+    reload: true,
     paths: null,
     mediaOverview: null,
+    search: false,
+    searchText: '',
     videoTypes: {
       mp4: 'video/mp4',
       webm: 'video/webm'
     }
   },
   mounted: async function () {
-    const request = await fetch('http://127.0.0.1:8288/paths/')
-    const paths = await request.json()
-    this.paths = paths.map(p => `../../media/${p.replace(/\\/g, '/')}`)
-    this.loading = false
+    (async function pathHandling() {
+      const request = await fetch('http://127.0.0.1:8288/paths/')
+      const paths = await request.json()
+
+      const app = this.app
+      app.paths = paths.map(p => `../../media/${p.replace(/\\/g, '/')}`)  
+      app.loading = false
+
+      if (app.reload)
+        setTimeout(pathHandling, 2000)
+    })()
 
     document.addEventListener('keydown', e => {
+      //search
+      if (e.keyCode === 114 || (e.ctrlKey && e.keyCode === 70)) { 
+        e.preventDefault()
+        
+        if (this.search) {
+          this.search = false
+        } else {
+          this.search = true
+
+          setTimeout(() => {
+            document.getElementById('search').focus()
+          }, 200);
+        }
+      }
+
       const currentElement = fileName => this.paths.findIndex(e => e === fileName)
 
       //next media ->  arrow-key right || L
@@ -118,6 +143,12 @@ var app = new Vue({
       }
 
       return true
+    },
+    getFileName: function(path) { 
+      if (path) {
+        const indexOfSlash = path.lastIndexOf('/') + 1
+        return path.substring(indexOfSlash, path.length)
+      }
     }
   }
 })

@@ -8,15 +8,64 @@ html {
   box-sizing: border-box;
   background-color: #2e3035;
   margin: 1em;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .media-container {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(15em, 2fr));
-  grid-auto-rows: minmax(15em, 2fr);
+  grid-template-columns: repeat(auto-fit, minmax(20em, 2fr));
   gap: 1em;
   width: calc(100% - 1em);
   z-index: 999;
+}
+
+.media-overview .control-bar {
+  position: absolute;
+  top: 0;
+  height: 3em;
+  width: 100%;
+  background-color: rgba(34, 35, 33, 0.90);
+}
+
+.control-bar .control-items {
+  height: 100%;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 1.3em;
+}
+
+.control-bar .control-items:first-child {
+  font-weight: 500;
+  padding-left: 1em;
+}
+
+.control-bar .control-items:last-child {
+  font-weight: 500;
+  padding-right: 1em;
+  cursor: pointer;
+}
+
+.search {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.6em;
+  position: fixed;
+  top: 0;
+  left: 0;
+  background-color: rgba(0, 0, 0, 0.90);
+  color: gray;
+  font-size: 28px;
+  border-color: transparent;
+  border-width: 0;
+  appearance: none;
+  outline: none;
+}
+
+.search:active {
+  border-color: transparent;
+  border-width: 0;
 }
 
 img, video {

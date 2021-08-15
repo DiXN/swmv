@@ -7,7 +7,14 @@
   </head>
   <body>
     <div id="app">
+      <input type="text" id="search" placeholder="search..." class="search" v-show="search" v-model="searchText"/>
       <div class="media-overview" v-show="mediaOverview || loading">
+        <div class="control-bar">
+          <div class="control-items">
+            <label class="control-caption">{{ getFileName(mediaOverview) }}</label>
+            <label class="control-close" @click="mediaOverview = null">x</label>
+          </div>
+        </div>
         <div class="spinner" v-show="loading">
           <div></div>
           <div></div>
@@ -20,11 +27,13 @@
         </video>
       </div>
       <div class="media-container">
-        <img v-for="path in paths" :src="path.replace(/#/g, '%23')" v-if="RegExp('.*(jpe?g|png|gif)', 'gi').test(path)"
-           @click="!mediaOverview ? mediaOverview = path.replace(/#/g, '%23') : null" :title="path" />
-        <video @click="!mediaOverview ? mediaOverview = path : null" :title="path" :autoplay="isAutoplay(path)" muted loop v-else>
-          <source :src="thumbnailHygiene(path)" :type="getExtension(path)"></soure>
-        </video>
+        <div v-for="path in paths" v-show="path.includes(searchText)">
+          <img :src="path.replace(/#/g, '%23')" v-if="RegExp('.*(jpe?g|png|gif)', 'gi').test(path)"
+             @click="!mediaOverview ? mediaOverview = path.replace(/#/g, '%23') : null" :title="path" />
+          <video @click="!mediaOverview ? mediaOverview = path : null" :title="path" :autoplay="isAutoplay(path)" muted loop v-else>
+            <source :src="thumbnailHygiene(path)" :type="getExtension(path)"></soure>
+          </video>
+        </div>
       </div>
     </div>
     <script defer src="/static/index.js"></script>
