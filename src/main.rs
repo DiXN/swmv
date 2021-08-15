@@ -14,16 +14,16 @@ use std::sync::Mutex;
 use anyhow::Result;
 use clap::{value_t, App, Arg};
 use directories::UserDirs;
-use once_cell::sync::{OnceCell, Lazy};
+use once_cell::sync::{Lazy, OnceCell};
 use regex::Regex;
 use serde::Deserialize;
 use serde_json::Value;
+use tempfile::tempdir;
 use walkdir::{DirEntry, WalkDir};
 use which::which;
-use tempfile::tempdir;
 
-use notify::{Watcher, RecursiveMode};
-use notify::event::{EventKind::*, ModifyKind, CreateKind, RenameMode};
+use notify::event::{CreateKind, EventKind::*, ModifyKind, RenameMode};
+use notify::{RecursiveMode, Watcher};
 
 use actix_cors::Cors;
 use actix_files as fs;
@@ -38,7 +38,7 @@ struct Args {
   pub recursive: bool,
   pub path: PathBuf,
   pub depth: Option<usize>,
-  pub thumbnail_dir: PathBuf
+  pub thumbnail_dir: PathBuf,
 }
 
 #[derive(Debug, Deserialize)]
@@ -69,7 +69,10 @@ fn validate_files(entry: &DirEntry) -> bool {
 
 async fn get_paths() -> impl Responder {
   let args = ARGS.get().unwrap();
-  let normailized_paths = PATHS.lock().unwrap().iter()
+  let normailized_paths = PATHS
+    .lock()
+    .unwrap()
+    .iter()
     .filter(|p| !path_is_thumbnail(p))
     .map(|p| PathBuf::from(p.strip_prefix(&args.path).unwrap()))
     .collect::<Vec<_>>();
@@ -118,7 +121,12 @@ fn transcode() {
     let threads = num_cpus::get() / 4;
     let threads = if threads > 0 { threads } else { 1 };
 
-    for path in PATHS.lock().unwrap().iter().filter(|p| !path_is_thumbnail(p)) {
+    for path in PATHS
+      .lock()
+      .unwrap()
+      .iter()
+      .filter(|p| !path_is_thumbnail(p))
+    {
       if path.extension().unwrap() == "mp4" {
         let meta_data = read_metadata(path).unwrap_or(MetaData {
           width: 320,
@@ -270,13 +278,13 @@ async fn main() -> Result<()> {
     recursive: recursive,
     path: path.clone(),
     depth: depth,
-    thumbnail_dir: temp_dir.clone()
+    thumbnail_dir: temp_dir.clone(),
   };
 
   ARGS.set(args).unwrap();
 
   for walk_path in walk_paths(recursive, depth, &path) {
-   PATHS.lock().unwrap().push(walk_path);
+    PATHS.lock().unwrap().push(walk_path);
   }
 
   if matches.is_present("thumbnail") {
@@ -286,7 +294,12 @@ async fn main() -> Result<()> {
       error!("\"ffmpeg\" and \"ffprobe\" need to be installed for transcode support.");
     }
   } else if matches.is_present("delete") {
-    for path in PATHS.lock().unwrap().iter().filter(|p| path_is_thumbnail(p)) {
+    for path in PATHS
+      .lock()
+      .unwrap()
+      .iter()
+      .filter(|p| path_is_thumbnail(p))
+    {
       remove_file(path)?;
     }
   }
@@ -302,49 +315,52 @@ async fn main() -> Result<()> {
   };
 
   // Watch for changes and update paths.
-  let mut watcher = notify::recommended_watcher(move |res : Result<notify::Event, notify::Error>| {
-    match res {
-      Ok(event) => {
-        match event.kind {
-          Create(kind) => {
-            if kind == CreateKind::File {
-              add_paths(&event.paths);
-            }
+  let mut watcher =
+    notify::recommended_watcher(move |res: Result<notify::Event, notify::Error>| match res {
+      Ok(event) => match event.kind {
+        Create(kind) => {
+          if kind == CreateKind::File {
+            add_paths(&event.paths);
+          }
 
-            if kind == CreateKind::Folder {
-              for p in event.paths {
-                for entry in WalkDir::new(p) {
-                  if let Ok(entry) = entry {
-                    if entry.path().is_file() && !PATHS.lock().unwrap().contains(&entry.path().to_path_buf()) {
-                      PATHS.lock().unwrap().push(entry.path().to_path_buf().clone());
-                    }
+          if kind == CreateKind::Folder {
+            for p in event.paths {
+              for entry in WalkDir::new(p) {
+                if let Ok(entry) = entry {
+                  if entry.path().is_file()
+                    && !PATHS.lock().unwrap().contains(&entry.path().to_path_buf())
+                  {
+                    PATHS
+                      .lock()
+                      .unwrap()
+                      .push(entry.path().to_path_buf().clone());
                   }
                 }
               }
             }
-          },
-          Modify(meta) => {
-            match meta {
-              ModifyKind::Name(name) => {
-                if name == RenameMode::From {
-                  for path in event.paths.iter() {
-                    PATHS.lock().unwrap().retain(|p| !p.starts_with(path) || p != path);
-                  }
-                }
-
-                if name == RenameMode::To {
-                  add_paths(&event.paths);
-                }
-              },
-              _ => ()
-            }
-          },
-          _ => (),
+          }
         }
+        Modify(meta) => match meta {
+          ModifyKind::Name(name) => {
+            if name == RenameMode::From {
+              for path in event.paths.iter() {
+                PATHS
+                  .lock()
+                  .unwrap()
+                  .retain(|p| !p.starts_with(path) || p != path);
+              }
+            }
+
+            if name == RenameMode::To {
+              add_paths(&event.paths);
+            }
+          }
+          _ => (),
+        },
+        _ => (),
       },
       Err(e) => println!("watch error: {:?}", e),
-    }
-  })?;
+    })?;
 
   if args.recursive {
     watcher.watch(&args.path, RecursiveMode::Recursive)?;
