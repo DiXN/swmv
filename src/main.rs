@@ -9,10 +9,12 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str;
 
+use std::sync::Mutex;
+
 use anyhow::Result;
 use clap::{value_t, App, Arg};
 use directories::UserDirs;
-use once_cell::sync::OnceCell;
+use once_cell::sync::{OnceCell, Lazy};
 use regex::Regex;
 use serde::Deserialize;
 use serde_json::Value;
@@ -20,19 +22,22 @@ use walkdir::{DirEntry, WalkDir};
 use which::which;
 use tempfile::tempdir;
 
+use notify::{Watcher, RecursiveMode};
+use notify::event::{EventKind::*, ModifyKind, CreateKind, RenameMode};
+
 use actix_cors::Cors;
 use actix_files as fs;
 use actix_files::NamedFile;
 use actix_web::{http, web, HttpServer, Responder};
 
 static ARGS: OnceCell<Args> = OnceCell::new();
+static PATHS: Lazy<Mutex<Vec<PathBuf>>> = Lazy::new(|| Mutex::new(vec![]));
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Args {
   pub recursive: bool,
   pub path: PathBuf,
   pub depth: Option<usize>,
-  pub paths: Vec<PathBuf>,
   pub thumbnail_dir: PathBuf
 }
 
@@ -64,9 +69,7 @@ fn validate_files(entry: &DirEntry) -> bool {
 
 async fn get_paths() -> impl Responder {
   let args = ARGS.get().unwrap();
-  let normailized_paths = args
-    .paths
-    .iter()
+  let normailized_paths = PATHS.lock().unwrap().iter()
     .filter(|p| !path_is_thumbnail(p))
     .map(|p| PathBuf::from(p.strip_prefix(&args.path).unwrap()))
     .collect::<Vec<_>>();
@@ -115,7 +118,7 @@ fn transcode() {
     let threads = num_cpus::get() / 4;
     let threads = if threads > 0 { threads } else { 1 };
 
-    for path in g_args.paths.iter().filter(|p| !path_is_thumbnail(p)) {
+    for path in PATHS.lock().unwrap().iter().filter(|p| !path_is_thumbnail(p)) {
       if path.extension().unwrap() == "mp4" {
         let meta_data = read_metadata(path).unwrap_or(MetaData {
           width: 320,
@@ -168,6 +171,27 @@ fn transcode() {
       }
     }
   });
+}
+
+fn walk_paths(recursive: bool, depth: Option<usize>, path: &Path) -> Vec<PathBuf> {
+  let walker = if recursive {
+    WalkDir::new(&path)
+  } else {
+    WalkDir::new(&path).max_depth(1)
+  };
+
+  let walker = if let Some(depth) = depth {
+    WalkDir::new(&path).max_depth(depth)
+  } else {
+    walker
+  };
+
+  walker
+    .into_iter()
+    .filter_map(Result::ok)
+    .filter(|e| validate_files(e))
+    .map(|e| PathBuf::from(e.path()))
+    .collect::<Vec<_>>()
 }
 
 #[actix_rt::main]
@@ -239,25 +263,6 @@ async fn main() -> Result<()> {
     None
   };
 
-  let walker = if recursive {
-    WalkDir::new(&path)
-  } else {
-    WalkDir::new(&path).max_depth(1)
-  };
-
-  let walker = if let Some(depth) = depth {
-    WalkDir::new(&path).max_depth(depth)
-  } else {
-    walker
-  };
-
-  let paths = walker
-    .into_iter()
-    .filter_map(Result::ok)
-    .filter(|e| validate_files(e))
-    .map(|e| PathBuf::from(e.path()))
-    .collect::<Vec<_>>();
-
   let temp_dir = tempdir().unwrap();
   let temp_dir = PathBuf::from(temp_dir.path());
 
@@ -265,11 +270,14 @@ async fn main() -> Result<()> {
     recursive: recursive,
     path: path.clone(),
     depth: depth,
-    paths: paths,
     thumbnail_dir: temp_dir.clone()
   };
 
   ARGS.set(args).unwrap();
+
+  for walk_path in walk_paths(recursive, depth, &path) {
+   PATHS.lock().unwrap().push(walk_path);
+  }
 
   if matches.is_present("thumbnail") {
     if which("ffmpeg").is_ok() && which("ffprobe").is_ok() {
@@ -278,12 +286,71 @@ async fn main() -> Result<()> {
       error!("\"ffmpeg\" and \"ffprobe\" need to be installed for transcode support.");
     }
   } else if matches.is_present("delete") {
-    let paths = &ARGS.get().unwrap().paths;
-    for path in paths.iter().filter(|p| path_is_thumbnail(p)) {
+    for path in PATHS.lock().unwrap().iter().filter(|p| path_is_thumbnail(p)) {
       remove_file(path)?;
     }
   }
 
+  let args = ARGS.get().unwrap();
+
+  let add_paths = |paths: &Vec<PathBuf>| {
+    for path in paths.iter() {
+      if !PATHS.lock().unwrap().contains(path) {
+        PATHS.lock().unwrap().push(path.clone());
+      }
+    }
+  };
+
+  // Watch for changes and update paths.
+  let mut watcher = notify::recommended_watcher(move |res : Result<notify::Event, notify::Error>| {
+    match res {
+      Ok(event) => {
+        match event.kind {
+          Create(kind) => {
+            if kind == CreateKind::File {
+              add_paths(&event.paths);
+            }
+
+            if kind == CreateKind::Folder {
+              for p in event.paths {
+                for entry in WalkDir::new(p) {
+                  if let Ok(entry) = entry {
+                    if entry.path().is_file() && !PATHS.lock().unwrap().contains(&entry.path().to_path_buf()) {
+                      PATHS.lock().unwrap().push(entry.path().to_path_buf().clone());
+                    }
+                  }
+                }
+              }
+            }
+          },
+          Modify(meta) => {
+            match meta {
+              ModifyKind::Name(name) => {
+                if name == RenameMode::From {
+                  for path in event.paths.iter() {
+                    PATHS.lock().unwrap().retain(|p| !p.starts_with(path) || p != path);
+                  }
+                }
+
+                if name == RenameMode::To {
+                  add_paths(&event.paths);
+                }
+              },
+              _ => ()
+            }
+          },
+          _ => (),
+        }
+      },
+      Err(e) => println!("watch error: {:?}", e),
+    }
+  })?;
+
+  if args.recursive {
+    watcher.watch(&args.path, RecursiveMode::Recursive)?;
+  } else {
+    watcher.watch(&args.path, RecursiveMode::NonRecursive)?;
+  }
 
   HttpServer::new(move || {
     actix_web::App::new()
