@@ -207,10 +207,10 @@ async fn main() -> Result<()> {
   std::env::set_var("RUST_LOG", "actix_server=info,actix_web=info");
   env_logger::init();
 
-  let matches = App::new("Imgurx")
+  let matches = App::new("swmv")
     .version("0.1.0")
     .author("Michael Kaltschmid <kaltschmidmichael@gmail.com>")
-    .about("It's Imgur but actually not.")
+    .about("Simple Imgur inspired media viewer.")
     .arg(
       Arg::with_name("path")
         .short("p")
