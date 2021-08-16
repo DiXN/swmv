@@ -26,7 +26,7 @@ use notify::{RecursiveMode, Watcher};
 use actix_cors::Cors;
 use actix_files as fs;
 use actix_files::NamedFile;
-use actix_web::{http, web, HttpServer, Responder};
+use actix_web::{web, HttpServer, Responder};
 
 static ARGS: OnceCell<Args> = OnceCell::new();
 static PATHS: Lazy<Mutex<Vec<PathBuf>>> = Lazy::new(|| Mutex::new(vec![]));
@@ -365,15 +365,7 @@ async fn main() -> Result<()> {
 
   HttpServer::new(move || {
     actix_web::App::new()
-      .wrap(
-        Cors::new()
-          .allowed_origin("index.html")
-          .allowed_methods(vec!["GET"])
-          .allowed_headers(vec![http::header::AUTHORIZATION, http::header::ACCEPT])
-          .allowed_header(http::header::CONTENT_TYPE)
-          .max_age(3600)
-          .finish(),
-      )
+      .wrap(Cors::permissive())
       .service(fs::Files::new("/static", "static").index_file("index.html"))
       .service(fs::Files::new("/media", &path).show_files_listing())
       .service(fs::Files::new("/thumbnails", &temp_dir).show_files_listing())
@@ -382,7 +374,7 @@ async fn main() -> Result<()> {
       .route("/file/exists/{file}", web::get().to(exists_file_on_server))
   })
   .workers(2)
-  .bind("127.0.0.1:8288")?
+  .bind("localhost:8288")?
   .run()
   .await?;
 
