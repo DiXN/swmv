@@ -3,8 +3,6 @@ extern crate log;
 extern crate env_logger;
 
 use std::fs::remove_file;
-use std::io;
-use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str;
@@ -252,15 +250,12 @@ async fn main() -> Result<()> {
     )
     .get_matches();
 
-  let path = matches.value_of("path").map(PathBuf::from).unwrap_or(
+  let path = matches.value_of("path").map(PathBuf::from).unwrap_or_else(||
     UserDirs::new()
-      .ok_or(io::Error::new(
-        ErrorKind::NotFound,
-        "Cannot get user directories.",
-      ))?
+      .expect("Cannot get user directories.")
       .picture_dir()
       .map(PathBuf::from)
-      .expect("Canot find picture directory. Specify a valid path."),
+      .expect("Cannot find picture directory. Specify a valid path.")
   );
 
   let recursive = matches.is_present("recursive");
@@ -386,6 +381,7 @@ async fn main() -> Result<()> {
       .route("/paths/", web::get().to(get_paths))
       .route("/file/exists/{file}", web::get().to(exists_file_on_server))
   })
+  .workers(2)
   .bind("127.0.0.1:8288")?
   .run()
   .await?;
