@@ -374,7 +374,7 @@ async fn main() -> Result<()> {
       .route("/file/exists/{file}", web::get().to(exists_file_on_server))
   })
   .workers(2)
-  .bind("localhost:8288")?
+  .bind(("0.0.0.0", 8288))?
   .run()
   .await?;
 

@@ -14,11 +14,11 @@ var app = new Vue({
   },
   mounted: async function () {
     (async function pathHandling() {
-      const request = await fetch('http://127.0.0.1:8288/paths/')
+      const request = await fetch('http://0.0.0.0:8288/paths/')
       const paths = await request.json()
 
       const app = this.app
-      app.paths = paths.map(p => `../../media/${p.replace(/\\/g, '/')}`)  
+      app.paths = paths.map(p => `../../media/${p.replace(/\\/g, '/')}`)
       app.loading = false
 
       if (app.reload)
@@ -27,9 +27,9 @@ var app = new Vue({
 
     document.addEventListener('keydown', e => {
       //search
-      if (e.keyCode === 114 || (e.ctrlKey && e.keyCode === 70)) { 
+      if (e.keyCode === 114 || (e.ctrlKey && e.keyCode === 70)) {
         e.preventDefault()
-        
+
         if (this.search) {
           this.search = false
         } else {
@@ -96,7 +96,7 @@ var app = new Vue({
     fileExistsOnServer: function(path) {
       const http = new XMLHttpRequest()
 
-      const requestPath = `http://127.0.0.1:8288/file/exists/${path}`
+      const requestPath = `http://0.0.0.0:8288/file/exists/${path}`
 
       http.open('GET', requestPath, false)
       http.send()
@@ -144,7 +144,7 @@ var app = new Vue({
 
       return true
     },
-    getFileName: function(path) { 
+    getFileName: function(path) {
       if (path) {
         const indexOfSlash = path.lastIndexOf('/') + 1
         return path.substring(indexOfSlash, path.length)
