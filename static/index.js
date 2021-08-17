@@ -14,7 +14,7 @@ var app = new Vue({
   },
   mounted: async function () {
     (async function pathHandling() {
-      const request = await fetch('http://0.0.0.0:8288/paths/')
+      const request = await fetch('paths/')
       const paths = await request.json()
 
       const app = this.app
@@ -96,7 +96,7 @@ var app = new Vue({
     fileExistsOnServer: function(path) {
       const http = new XMLHttpRequest()
 
-      const requestPath = `http://0.0.0.0:8288/file/exists/${path}`
+      const requestPath = `file/exists/${path}`
 
       http.open('GET', requestPath, false)
       http.send()

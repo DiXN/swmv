@@ -365,7 +365,7 @@ async fn main() -> Result<()> {
 
   HttpServer::new(move || {
     actix_web::App::new()
-      .wrap(Cors::permissive())
+      .wrap(Cors::default())
       .service(fs::Files::new("/static", "static").index_file("index.html"))
       .service(fs::Files::new("/media", &path).show_files_listing())
       .service(fs::Files::new("/thumbnails", &temp_dir).show_files_listing())
