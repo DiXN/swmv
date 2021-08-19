@@ -34,17 +34,19 @@ html {
   align-items: center;
   justify-content: space-between;
   font-size: 1.3em;
+  font-weight: 500;
+  padding: 0 1em;
 }
 
-.control-bar .control-items:first-child {
-  font-weight: 500;
-  padding-left: 1em;
-}
 
-.control-bar .control-items:last-child {
-  font-weight: 500;
-  padding-right: 1em;
+.control-items label:last-child {
+  padding: 0.5em 0 0.5em 0.5em;
   cursor: pointer;
+  font-size: 1.4em;
+}
+
+.control-items label:last-child:hover {
+  color: gray;
 }
 
 .search {

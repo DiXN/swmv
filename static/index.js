@@ -4,6 +4,7 @@ var app = new Vue({
     loading: true,
     reload: true,
     paths: null,
+    thumbnails: null,
     mediaOverview: null,
     search: false,
     searchText: '',
@@ -13,12 +14,86 @@ var app = new Vue({
     }
   },
   mounted: async function () {
+
+    const fileExistsOnServer = async (path) => {
+      const requestPath = `thumbnails/${path}`
+
+      try {
+        const response = await fetch(requestPath, {
+          method: 'HEAD',
+          cache: 'no-cache'
+        })
+
+        return response.status === 200
+
+      } catch(error) {
+        return false
+      }
+    }
+
+    const thumbnailHygiene = async (path) => {
+      if (path) {
+        const indexOfExtension = path.lastIndexOf('.') + 1
+        const extension = path.substring(indexOfExtension, path.length)
+        const fileName = path.substring(path.lastIndexOf('/'), path.length)
+
+        if (extension === 'mp4') {
+          const filePath = `thumbnails${fileName.slice(0, -4)}_thumbnail.mp4`
+          const thumbnailPath = filePath.split('/').pop()
+
+          const fileExists = await fileExistsOnServer(thumbnailPath)
+
+          if (fileExists)
+            return [true, filePath]
+          else
+            return [false, `${path}#t=2`]
+        }
+
+        if (extension === 'webm')
+          return [true, `/media/${path}`]
+      }
+
+      return [false, path]
+    }
+
+    const checkThumbnails = async (paths) => {
+      const filtered = paths.filter(p => p.endsWith('.mp4') || p.endsWith('webm'))
+
+      const videos = document.querySelectorAll('video')
+
+      for (const video of videos) {
+        if (video.readyState === 0) {
+          video.load()
+        }
+      }
+
+      const thumbs = await Promise.all(filtered.map(async p => {
+        const [auto, thumb] = await thumbnailHygiene(p)
+
+        return [p, {
+          'auto': auto,
+          'thumbnail': thumb
+        }]
+      }))
+
+
+      return new Map(thumbs) || null
+    }
+
     (async function pathHandling() {
-      const request = await fetch('paths/')
-      const paths = await request.json()
+      let paths = null
+
+      try {
+        const request = await fetch('paths/')
+        paths = await request.json()
+      } catch(_) {
+        if (this.app.reload)
+          setTimeout(pathHandling, 2000)
+      }
 
       const app = this.app
-      app.paths = paths.map(p => `../../media/${p.replace(/\\/g, '/')}`)
+      app.thumbnails = await checkThumbnails(paths)
+      app.paths = paths?.map(p => `../../media/${p.replace(/\\/g, '/')}`)
       app.loading = false
 
       if (app.reload)
@@ -93,56 +168,29 @@ var app = new Vue({
 
       return this.videoTypes.mp4
     },
-    fileExistsOnServer: function(path) {
-      const http = new XMLHttpRequest()
-
-      const requestPath = `file/exists/${path}`
-
-      http.open('GET', requestPath, false)
-      http.send()
-
-      if (http.status === 200)
-        if (JSON.parse(http.responseText))
-          return true
-
-      return false
-    },
     thumbnailHygiene: function(path) {
-      if (path) {
-        const indexOfExtension = path.lastIndexOf('.') + 1
-        const extension = path.substring(indexOfExtension, path.length)
-        const fileName = path.substring(path.lastIndexOf('/'), path.length)
+      const actual = path.substring('../../media/'.length, path.length)
 
-        if (extension === 'mp4') {
-          const filePath = `thumbnails${fileName.slice(0, -4)}_thumbnail.mp4`
-          const thumbnailPath = filePath.split('/').pop()
+      const thumb = this.thumbnails.get(actual)
 
-          const fileExists = this.fileExistsOnServer(thumbnailPath)
-          if (fileExists)
-            return filePath
-          else
-            return `${path}#t=2`
-        }
+      if (thumb) {
+        const { auto, thumbnail } = thumb
+        return thumbnail
       }
 
       return path
     },
     isAutoplay: function(path) {
-      if (path) {
-        const indexOfExtension = path.lastIndexOf('.') + 1
-        const extension = path.substring(indexOfExtension, path.length)
+      const actual = path.substring('../../media/'.length, path.length)
 
-        if (extension === 'mp4') {
-          const thumbnailPath = `${path.split('/').pop().slice(0, -4)}_thumbnail.mp4`
-          const fileExists = this.fileExistsOnServer(thumbnailPath)
-          if (fileExists)
-            return true
-          else
-            return false
-        }
+      const thumb = this.thumbnails.get(actual)
+
+      if (thumb) {
+        const { auto, thumbnail } = thumb
+        return auto
       }
 
-      return true
+      return false
     },
     getFileName: function(path) {
       if (path) {
