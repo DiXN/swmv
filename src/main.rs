@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str;
 
-use std::sync::Mutex;
+use std::sync::RwLock;
 
 use anyhow::Result;
 use clap::{value_t, App, Arg};
@@ -29,7 +29,7 @@ use actix_files::NamedFile;
 use actix_web::{web, HttpServer, Responder};
 
 static ARGS: OnceCell<Args> = OnceCell::new();
-static PATHS: Lazy<Mutex<Vec<PathBuf>>> = Lazy::new(|| Mutex::new(vec![]));
+static PATHS: Lazy<RwLock<Vec<PathBuf>>> = Lazy::new(|| RwLock::new(vec![]));
 
 #[derive(Debug, Clone)]
 struct Args {
@@ -48,7 +48,7 @@ struct MetaData {
 }
 
 fn path_is_thumbnail(path: &Path) -> bool {
-  path.display().to_string().contains("thumbnail")
+  path.to_string_lossy().contains("thumbnail")
 }
 
 fn validate_files(entry: &DirEntry) -> bool {
@@ -67,13 +67,15 @@ fn validate_files(entry: &DirEntry) -> bool {
 
 async fn get_paths() -> impl Responder {
   let args = ARGS.get().unwrap();
+
   let normailized_paths = PATHS
-    .lock()
+    .read()
     .unwrap()
     .iter()
     .filter(|p| !path_is_thumbnail(p))
     .map(|p| PathBuf::from(p.strip_prefix(&args.path).unwrap()))
     .collect::<Vec<_>>();
+
   web::Json(normailized_paths)
 }
 
@@ -81,7 +83,7 @@ async fn exists_file_on_server(file: web::Path<String>) -> impl Responder {
   let args = ARGS.get().unwrap();
 
   for p in WalkDir::new(&args.thumbnail_dir) {
-    if p.unwrap().path().ends_with(file.to_owned()) {
+    if p.unwrap().path().ends_with(file.as_ref()) {
       return web::Json(true);
     }
   }
@@ -120,7 +122,7 @@ fn transcode() {
     let threads = if threads > 0 { threads } else { 1 };
 
     for path in PATHS
-      .lock()
+      .read()
       .unwrap()
       .iter()
       .filter(|p| !path_is_thumbnail(p))
@@ -279,7 +281,7 @@ async fn main() -> Result<()> {
   ARGS.set(args).unwrap();
 
   for walk_path in walk_paths(recursive, depth, &path) {
-    PATHS.lock().unwrap().push(walk_path);
+    PATHS.write().unwrap().push(walk_path);
   }
 
   if matches.is_present("thumbnail") {
@@ -290,7 +292,7 @@ async fn main() -> Result<()> {
     }
   } else if matches.is_present("delete") {
     for path in PATHS
-      .lock()
+      .read()
       .unwrap()
       .iter()
       .filter(|p| path_is_thumbnail(p))
@@ -303,8 +305,8 @@ async fn main() -> Result<()> {
 
   let add_paths = |paths: &Vec<PathBuf>| {
     for path in paths.iter() {
-      if !PATHS.lock().unwrap().contains(path) {
-        PATHS.lock().unwrap().push(path.clone());
+      if !PATHS.read().unwrap().contains(path) {
+        PATHS.write().unwrap().push(path.clone());
       }
     }
   };
@@ -323,10 +325,10 @@ async fn main() -> Result<()> {
               for entry in WalkDir::new(p) {
                 if let Ok(entry) = entry {
                   if entry.path().is_file()
-                    && !PATHS.lock().unwrap().contains(&entry.path().to_path_buf())
+                    && !PATHS.read().unwrap().contains(&entry.path().to_path_buf())
                   {
                     PATHS
-                      .lock()
+                      .write()
                       .unwrap()
                       .push(entry.path().to_path_buf().clone());
                   }
@@ -340,7 +342,7 @@ async fn main() -> Result<()> {
             if name == RenameMode::From {
               for path in event.paths.iter() {
                 PATHS
-                  .lock()
+                  .write()
                   .unwrap()
                   .retain(|p| !p.starts_with(path) || p != path);
               }
