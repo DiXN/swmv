@@ -12,7 +12,7 @@
         <div class="control-bar">
           <div class="control-items">
             <label class="control-caption">{{ getFileName(mediaOverview) }}</label>
-            <label class="control-close" @click="mediaOverview = null">×</label>
+            <label class="control-close" @click="closeMedia">×</label>
           </div>
         </div>
         <div class="spinner" v-show="loading">
@@ -21,7 +21,7 @@
           <div></div>
         </div>
         <img :src="mediaOverview" v-if="RegExp('.*(jpe?g|png|gif)', 'gi').test(mediaOverview)"
-          style="display: none;" v-show="mediaOverview" />
+          style="display: none;" v-show="mediaOverview" @click="zoom" />
         <video :src="mediaOverview" style="display: none;" v-show="mediaOverview" autoplay muted loop controls v-else>
           <source :src="mediaOverview" :type="getExtension(mediaOverview)"></soure>
         </video>

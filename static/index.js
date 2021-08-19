@@ -150,10 +150,11 @@ var app = new Vue({
 
       //close overview ->  escape || backspace
       if (this.mediaOverview && (e.code === 'Escape' || e.code === 'Backspace')) {
-        const video = document.querySelector('.media-overview video')
-        video && video.pause()
+        this.closeMedia()
+      }
 
-        this.mediaOverview = null
+      if (this.mediaOverview && e.code === 'KeyF') {
+        this.zoom()
       }
 
     })
@@ -197,6 +198,23 @@ var app = new Vue({
         const indexOfSlash = path.lastIndexOf('/') + 1
         return path.substring(indexOfSlash, path.length)
       }
+    },
+    zoom: function() {
+      const img = document.querySelector('.media-overview img, .media-overview video')
+
+      if (img.style.width === '100%') {
+        img.style.width = '80%'
+        img.style.height = '80%'
+      } else {
+        img.style.width = '100%'
+        img.style.height = '100%'
+      }
+    },
+    closeMedia: function() {
+      const video = document.querySelector('.media-overview video')
+      video && video.pause()
+
+      this.mediaOverview = null
     }
   }
 })

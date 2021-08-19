@@ -25,6 +25,7 @@ html {
   height: 3em;
   width: 100%;
   background-color: rgba(34, 35, 33, 0.90);
+  z-index: 999;
 }
 
 .control-bar .control-items {
