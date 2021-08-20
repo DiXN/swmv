@@ -37,6 +37,7 @@ struct Args {
   pub path: PathBuf,
   pub depth: Option<usize>,
   pub thumbnail_dir: PathBuf,
+  pub cuda: bool
 }
 
 #[derive(Debug, Deserialize)]
@@ -144,10 +145,14 @@ fn transcode() {
         println!("Transcoding \"{}\"", path.display());
 
         let mut args = [
-          "-threads".to_owned(),
-          format!("{}", threads),
+          if g_args.cuda { "-hwaccel".to_owned() } else { "-threads".to_owned() },
+          if g_args.cuda { "cuda".to_owned() } else { format!("{}", threads) },
           "-i".to_owned(),
           path.display().to_string(),
+          "-c:a".to_owned(),
+          "copy".to_owned(),
+          "-c:v".to_owned(),
+          if g_args.cuda { "h264_nvenc".to_owned() } else { "libx264".to_owned() },
           "-ss".to_owned(),
           "00:00:00".to_owned(),
         ]
@@ -250,6 +255,14 @@ async fn main() -> Result<()> {
         .required(false)
         .takes_value(false),
     )
+    .arg(
+      Arg::with_name("cuda")
+        .short("c")
+        .long("cuda")
+        .help("Transcodes thumbnails with cuda.")
+        .required(false)
+        .takes_value(false),
+    )
     .get_matches();
 
   let path = matches.value_of("path").map(PathBuf::from).unwrap_or_else(||
@@ -268,6 +281,8 @@ async fn main() -> Result<()> {
     None
   };
 
+  let cuda = matches.is_present("cuda");
+
   let temp_dir = tempdir().unwrap();
   let temp_dir = PathBuf::from(temp_dir.path());
 
@@ -276,6 +291,7 @@ async fn main() -> Result<()> {
     path: path.clone(),
     depth: depth,
     thumbnail_dir: temp_dir.clone(),
+    cuda: cuda
   };
 
   ARGS.set(args).unwrap();
