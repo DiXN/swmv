@@ -20,6 +20,8 @@ use tempfile::tempdir;
 use walkdir::{DirEntry, WalkDir};
 use which::which;
 
+use rayon::prelude::*;
+
 use notify::event::{CreateKind, EventKind::*, ModifyKind, RenameMode};
 use notify::{RecursiveMode, Watcher};
 
@@ -122,14 +124,13 @@ fn transcode() {
     let threads = num_cpus::get() / 4;
     let threads = if threads > 0 { threads } else { 1 };
 
-    for path in PATHS
+    PATHS
       .read()
       .unwrap()
-      .iter()
-      .filter(|p| !path_is_thumbnail(p))
-    {
+      .par_iter()
+      .filter(|p| !path_is_thumbnail(p)).for_each(move |path: &PathBuf| {
       if path.extension().unwrap() == "mp4" {
-        let meta_data = read_metadata(path).unwrap_or(MetaData {
+        let meta_data = read_metadata(&path).unwrap_or(MetaData {
           width: 320,
           height: 240,
           duration: "15.0".to_owned(),
@@ -182,7 +183,7 @@ fn transcode() {
           .output()
           .expect("Failed to transcode video");
       }
-    }
+    });
   });
 }
 
@@ -282,6 +283,8 @@ async fn main() -> Result<()> {
   };
 
   let cuda = matches.is_present("cuda");
+
+  rayon::ThreadPoolBuilder::new().num_threads(if cuda { 3 } else { 1 }).build_global().unwrap();
 
   let temp_dir = tempdir().unwrap();
   let temp_dir = PathBuf::from(temp_dir.path());
