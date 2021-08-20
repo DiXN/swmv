@@ -59,7 +59,7 @@ pub fn transcode() {
           });
 
           let parse_duration = |duration: &str| -> usize {
-            let mut splitted_duration = duration.split('.').into_iter();
+            let mut splitted_duration = duration.split('.');
             let number = splitted_duration.next().unwrap();
             number.parse::<usize>().unwrap()
           };

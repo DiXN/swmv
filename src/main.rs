@@ -134,11 +134,11 @@ async fn main() -> Result<()> {
   let temp_dir = PathBuf::from(temp_dir.path());
 
   let args = Args {
-    recursive: recursive,
+    recursive,
     path: path.clone(),
-    depth: depth,
+    depth,
     thumbnail_dir: temp_dir.clone(),
-    cuda: cuda,
+    cuda,
   };
 
   ARGS.set(args).unwrap();

@@ -46,8 +46,8 @@ pub fn watch() -> Result<()> {
             }
           }
         }
-        Modify(meta) => match meta {
-          ModifyKind::Name(name) => {
+        Modify(meta) => {
+          if let ModifyKind::Name(name) = meta {
             if name == RenameMode::From {
               for path in event.paths.iter() {
                 PATHS
@@ -61,7 +61,6 @@ pub fn watch() -> Result<()> {
               add_paths(&event.paths);
             }
           }
-          _ => (),
         },
         _ => (),
       },
