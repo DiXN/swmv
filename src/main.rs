@@ -39,7 +39,7 @@ struct Args {
   pub path: PathBuf,
   pub depth: Option<usize>,
   pub thumbnail_dir: PathBuf,
-  pub cuda: bool
+  pub cuda: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -128,62 +128,75 @@ fn transcode() {
       .read()
       .unwrap()
       .par_iter()
-      .filter(|p| !path_is_thumbnail(p)).for_each(move |path: &PathBuf| {
-      if path.extension().unwrap() == "mp4" {
-        let meta_data = read_metadata(&path).unwrap_or(MetaData {
-          width: 320,
-          height: 240,
-          duration: "15.0".to_owned(),
-          bit_rate: "1010000".to_owned(),
-        });
+      .filter(|p| !path_is_thumbnail(p))
+      .for_each(move |path: &PathBuf| {
+        if path.extension().unwrap() == "mp4" {
+          let meta_data = read_metadata(&path).unwrap_or(MetaData {
+            width: 320,
+            height: 240,
+            duration: "15.0".to_owned(),
+            bit_rate: "1010000".to_owned(),
+          });
 
-        let parse_duration = |duration: &str| -> usize {
-          let mut splitted_duration = duration.split('.').into_iter();
-          let number = splitted_duration.next().unwrap();
-          number.parse::<usize>().unwrap()
-        };
+          let parse_duration = |duration: &str| -> usize {
+            let mut splitted_duration = duration.split('.').into_iter();
+            let number = splitted_duration.next().unwrap();
+            number.parse::<usize>().unwrap()
+          };
 
-        println!("Transcoding \"{}\"", path.display());
+          println!("Transcoding \"{}\"", path.display());
 
-        let mut args = [
-          if g_args.cuda { "-hwaccel".to_owned() } else { "-threads".to_owned() },
-          if g_args.cuda { "cuda".to_owned() } else { format!("{}", threads) },
-          "-i".to_owned(),
-          path.display().to_string(),
-          "-c:a".to_owned(),
-          "copy".to_owned(),
-          "-c:v".to_owned(),
-          if g_args.cuda { "h264_nvenc".to_owned() } else { "libx264".to_owned() },
-          "-ss".to_owned(),
-          "00:00:00".to_owned(),
-        ]
-        .to_vec();
+          let mut args = [
+            if g_args.cuda {
+              "-hwaccel".to_owned()
+            } else {
+              "-threads".to_owned()
+            },
+            if g_args.cuda {
+              "cuda".to_owned()
+            } else {
+              format!("{}", threads)
+            },
+            "-i".to_owned(),
+            path.display().to_string(),
+            "-c:a".to_owned(),
+            "copy".to_owned(),
+            "-c:v".to_owned(),
+            if g_args.cuda {
+              "h264_nvenc".to_owned()
+            } else {
+              "libx264".to_owned()
+            },
+            "-ss".to_owned(),
+            "00:00:00".to_owned(),
+          ]
+          .to_vec();
 
-        if parse_duration(&meta_data.duration) > 15 {
-          args.extend(["-t".to_owned(), "00:00:15".to_owned()].to_vec());
+          if parse_duration(&meta_data.duration) > 15 {
+            args.extend(["-t".to_owned(), "00:00:15".to_owned()].to_vec());
+          }
+
+          if meta_data.width > 320 || meta_data.height > 240 {
+            args.extend(["-vf".to_owned(), "scale=320:240".to_owned()].to_vec());
+          }
+
+          if meta_data.bit_rate.parse::<usize>().unwrap() > 1_010_000 {
+            args.extend(["-b:v".to_owned(), "1M".to_owned()].to_vec());
+          }
+
+          let thumbnail = format!(
+            "{}_thumbnail.{}",
+            path.file_stem().unwrap().to_string_lossy(),
+            path.extension().unwrap().to_string_lossy()
+          );
+
+          Command::new("ffmpeg")
+            .args(&args)
+            .arg(g_args.thumbnail_dir.join(&thumbnail))
+            .output()
+            .expect("Failed to transcode video");
         }
-
-        if meta_data.width > 320 || meta_data.height > 240 {
-          args.extend(["-vf".to_owned(), "scale=320:240".to_owned()].to_vec());
-        }
-
-        if meta_data.bit_rate.parse::<usize>().unwrap() > 1_010_000 {
-          args.extend(["-b:v".to_owned(), "1M".to_owned()].to_vec());
-        }
-
-        let thumbnail = format!(
-          "{}_thumbnail.{}",
-          path.file_stem().unwrap().to_string_lossy(),
-          path.extension().unwrap().to_string_lossy()
-        );
-
-        Command::new("ffmpeg")
-          .args(&args)
-          .arg(g_args.thumbnail_dir.join(&thumbnail))
-          .output()
-          .expect("Failed to transcode video");
-      }
-    });
+      });
   });
 }
 
@@ -266,13 +279,16 @@ async fn main() -> Result<()> {
     )
     .get_matches();
 
-  let path = matches.value_of("path").map(PathBuf::from).unwrap_or_else(||
-    UserDirs::new()
-      .expect("Cannot get user directories.")
-      .picture_dir()
-      .map(PathBuf::from)
-      .expect("Cannot find picture directory. Specify a valid path.")
-  );
+  let path = matches
+    .value_of("path")
+    .map(PathBuf::from)
+    .unwrap_or_else(|| {
+      UserDirs::new()
+        .expect("Cannot get user directories.")
+        .picture_dir()
+        .map(PathBuf::from)
+        .expect("Cannot find picture directory. Specify a valid path.")
+    });
 
   let recursive = matches.is_present("recursive");
 
@@ -284,7 +300,10 @@ async fn main() -> Result<()> {
 
   let cuda = matches.is_present("cuda");
 
-  rayon::ThreadPoolBuilder::new().num_threads(if cuda { 3 } else { 1 }).build_global().unwrap();
+  rayon::ThreadPoolBuilder::new()
+    .num_threads(if cuda { 3 } else { 1 })
+    .build_global()
+    .unwrap();
 
   let temp_dir = tempdir().unwrap();
   let temp_dir = PathBuf::from(temp_dir.path());
@@ -294,7 +313,7 @@ async fn main() -> Result<()> {
     path: path.clone(),
     depth: depth,
     thumbnail_dir: temp_dir.clone(),
-    cuda: cuda
+    cuda: cuda,
   };
 
   ARGS.set(args).unwrap();
