@@ -25,11 +25,20 @@ use which::which;
 
 use actix_cors::Cors;
 use actix_files as fs;
-use actix_files::NamedFile;
-use actix_web::{web, HttpServer, Responder};
+use actix_web::body::Body;
+use actix_web::{web, HttpResponse, HttpServer, Responder};
+
+use mime_guess::from_path;
+use rust_embed::RustEmbed;
+
+use std::borrow::Cow;
 
 pub static ARGS: OnceCell<Args> = OnceCell::new();
 pub static PATHS: Lazy<RwLock<Vec<PathBuf>>> = Lazy::new(|| RwLock::new(vec![]));
+
+#[derive(RustEmbed)]
+#[folder = "static"]
+struct Asset;
 
 #[derive(Debug, Clone)]
 pub struct Args {
@@ -93,8 +102,26 @@ async fn get_paths() -> impl Responder {
   web::Json(normailized_paths)
 }
 
-async fn index() -> impl Responder {
-  NamedFile::open("static/index.html")
+//ref: https://github.com/pyros2097/rust-embed/blob/master/examples/actix.rs
+fn handle_embedded_file(path: &str) -> HttpResponse {
+  match Asset::get(path) {
+    Some(content) => {
+      let body: Body = match content.data {
+        Cow::Borrowed(bytes) => bytes.into(),
+        Cow::Owned(bytes) => bytes.into(),
+      };
+      HttpResponse::Ok().content_type(from_path(path).first_or_octet_stream().as_ref()).body(body)
+    }
+    None => HttpResponse::NotFound().body("404 Not Found"),
+  }
+}
+
+fn index() -> HttpResponse {
+  handle_embedded_file("index.html")
+}
+
+fn dist(path: web::Path<String>) -> HttpResponse {
+  handle_embedded_file(&path.0)
 }
 
 #[actix_rt::main]
@@ -170,10 +197,10 @@ async fn main() -> Result<()> {
   HttpServer::new(move || {
     actix_web::App::new()
       .wrap(Cors::default())
-      .service(fs::Files::new("/static", "static").index_file("index.html"))
+      .service(web::resource("/").route(web::get().to(index)))
+      .service(web::resource("/static/{_:.*}").route(web::get().to(dist)))
       .service(fs::Files::new("/media", &path).show_files_listing())
       .service(fs::Files::new("/thumbnails", &temp_dir).show_files_listing())
-      .route("/", web::get().to(index))
       .route("/paths/", web::get().to(get_paths))
   })
   .workers(2)
