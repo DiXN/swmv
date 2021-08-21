@@ -64,7 +64,7 @@ pub fn transcode() {
             number.parse::<usize>().unwrap()
           };
 
-          println!("Transcoding \"{}\"", path.display());
+          info!("Transcoding \"{}\"", path.display());
 
           let mut args = [
             if g_args.cuda {
