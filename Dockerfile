@@ -19,7 +19,7 @@ RUN addgroup -S $APP_USER \
     && adduser -S -g $APP_USER $APP_USER
 
 RUN apk update \
-    && apk add --no-cache ca-certificates tzdata \
+    && apk add --no-cache ca-certificates tzdata ffmpeg \
     && rm -rf /var/cache/apk/*
 
 COPY --from=builder /home/rust/src/target/x86_64-unknown-linux-musl/release/swmv ${APP}/swmv
@@ -31,6 +31,5 @@ RUN mkdir -p ${APP}/media
 USER $APP_USER
 WORKDIR ${APP}
 
-COPY ./static ./static
-
 CMD ./swmv -r -t -p /media
+
