@@ -126,7 +126,7 @@ fn dist(path: web::Path<String>) -> HttpResponse {
 
 #[actix_rt::main]
 async fn main() -> Result<()> {
-  std::env::set_var("RUST_LOG", "actix_server=info,actix_web=info");
+  std::env::set_var("RUST_LOG", "actix_server=info,actix_web=info,info");
   env_logger::init();
 
   let matches = get_args().get_matches();

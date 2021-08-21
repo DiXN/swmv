@@ -35,10 +35,10 @@ var app = new Vue({
       if (path) {
         const indexOfExtension = path.lastIndexOf('.') + 1
         const extension = path.substring(indexOfExtension, path.length)
-        const fileName = path.substring(path.lastIndexOf('/'), path.length)
+        const fileName = path.substring(path.lastIndexOf('/') + 1, path.length)
 
         if (extension === 'mp4') {
-          const filePath = `thumbnails${fileName.slice(0, -4)}_thumbnail.mp4`
+          const filePath = `thumbnails/${fileName.slice(0, -4)}_thumbnail.mp4`
           const thumbnailPath = filePath.split('/').pop()
 
           const fileExists = await fileExistsOnServer(thumbnailPath)
@@ -46,7 +46,7 @@ var app = new Vue({
           if (fileExists)
             return [true, filePath]
           else
-            return [false, `${path}#t=2`]
+            return [false, `/media/${path}#t=2`]
         }
 
         if (extension === 'webm')
