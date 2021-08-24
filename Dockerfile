@@ -31,5 +31,5 @@ RUN mkdir -p ${APP}/media
 USER $APP_USER
 WORKDIR ${APP}
 
-CMD ./swmv -r -t -p /media
+ENTRYPOINT ["./swmv", "-p",  "/media" ]
 
